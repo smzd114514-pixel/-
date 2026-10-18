@@ -1,0 +1,24 @@
+# Personal vocabulary, local backups, recovery data and logs
+/data/
+*.log
+
+# Dependencies, bundled runtime and generated packages
+/node_modules/
+/runtime/
+/releases/
+/.packaging/
+/.qa/
+/coverage/
+
+# Local credentials and editor/OS files
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

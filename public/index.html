@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="你的本地英语单词本：剑桥英式音标、中文释义与间隔复习。">
+  <title>词页 · 我的英语单词本</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231a3a68'/%3E%3Cpath d='M8 7h17v19H8z' fill='white'/%3E%3Cpath d='M12 7v19M15 13h7M15 18h7' stroke='%233968ac' stroke-width='2'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="topbar"><a class="brand" href="/" aria-label="词页首页"><span class="brand-mark">词</span><span>词页 <small>WORD BY WORD</small></span></a><div class="top-right"><span class="local-label">我的本地单词本</span><span id="save-state" role="status">正在读取…</span></div></header>
+  <main>
+    <nav class="page-nav" aria-label="学习页面"><a href="#wordbook" id="wordbook-nav" class="active" aria-current="page">单词本</a><a href="#synonyms" id="synonyms-nav">同义替换</a><a href="#materials" id="materials-nav">语料积累</a></nav>
+    <div id="wordbook-page">
+    <section class="heading"><div><p class="eyebrow">UIBE · ENGLISH NOTEBOOK</p><h1>把新词，变成你的词。</h1><p class="intro">记下一词，按时重逢。英式发音与中文释义来自 Cambridge Dictionary。</p></div><div class="today"><span id="today-date"></span><span id="today-week"></span></div></section>
+    <section class="review-strip" aria-label="复习概览"><div><span class="review-symbol">✳</span><span id="review-summary">今天的复习清单</span></div><button class="text-button" id="settings-button">复习间隔 <span id="interval-label">0 / 1 / 2 / 6 / 14 / 30 天</span></button></section>
+    <section class="notebook" aria-label="单词本">
+      <div class="book-toolbar"><div class="tabs" role="group" aria-label="单词筛选"><button class="tab active" id="all-tab">全部单词 <span id="all-count">0</span></button><button class="tab" id="due-tab">待复习 <span id="due-count">0</span></button></div><div class="book-actions"><button id="export-button">导出备份</button><button id="import-button">导入备份</button><button id="csv-button">导出表格</button></div></div>
+      <form id="add-form" class="add-bar"><label for="new-word">收录新词</label><input id="new-word" autocomplete="off" spellcheck="false" placeholder="输入英文单词，如 opportunity" maxlength="100" required><button type="submit" class="primary">＋ 加入单词本</button><button type="button" id="blank-button">添加空白行</button></form>
+      <section class="stored-search" aria-label="检索已收录单词"><form id="search-form"><label for="search-word">检索已收录</label><div class="search-input-wrap"><span aria-hidden="true">⌕</span><input id="search-word" type="search" maxlength="100" autocomplete="off" spellcheck="false" placeholder="输入英文或中文，在全部日期中检索" aria-controls="search-panel" aria-expanded="false"><button type="button" id="search-clear" aria-label="清空检索">×</button></div><button type="submit">检索</button></form><div id="search-panel" hidden><p id="search-summary" role="status"></p><ul id="search-results"></ul><p class="search-hint">点击结果可跳转到对应日期的单词位置。相关词使用主词的收录日期。</p></div></section>
+      <section class="self-check" aria-label="自我检查">
+        <div class="self-check-controls"><strong>自我检查</strong><button type="button" data-check-mode="meaning" aria-pressed="false">看词想义</button><button type="button" data-check-mode="word" aria-pressed="false">看义想词</button><details class="column-picker"><summary>自由遮挡列</summary><fieldset><legend>勾选要遮挡的列</legend><label><input type="checkbox" data-hide-column="date">日期</label><label><input type="checkbox" data-hide-column="number">序号</label><label><input type="checkbox" data-hide-column="word">单词</label><label><input type="checkbox" data-hide-column="ipa">英式音标</label><label><input type="checkbox" data-hide-column="meaning">词性与中文释义</label><label><input type="checkbox" data-hide-column="link">链接</label></fieldset></details><button type="button" id="conceal-again" hidden>重新遮挡</button><button type="button" id="show-columns" hidden>全部显示</button></div>
+        <p id="conceal-status" role="status">先回忆，再点「揭晓」核对这一词的答案。</p>
+      </section>
+      <div class="table-scroll"><table><caption class="sr-only">六列可编辑单词表；同一单词的每个词性单独一行。</caption><colgroup><col class="c-date"><col class="c-number"><col class="c-word"><col class="c-ipa"><col class="c-meaning"><col class="c-link"></colgroup><thead><tr><th scope="col">日期</th><th scope="col">序号</th><th scope="col">单词</th><th scope="col">英式音标 <span>UK</span></th><th scope="col">词性与中文释义</th><th scope="col">链接</th></tr></thead><tbody id="word-rows"></tbody></table></div>
+      <div id="empty-state" class="empty"><span class="empty-mark">Aa</span><h2>从今天遇见的第一个词开始</h2><p>在上方输入单词并按 Enter，音标和释义会自动填入。<br>也可以添加空白行，在表格中直接输入。</p><p class="empty-hint">试试 opportunity、record 或 trade</p></div>
+      <nav id="date-pagination" class="date-pagination" aria-label="按收录日期翻页" hidden>
+        <button type="button" id="page-previous">← 上一页</button>
+        <div class="date-picker"><span id="page-date-label">收录日期</span><button type="button" id="page-date" popovertarget="date-calendar" aria-haspopup="dialog" aria-controls="date-calendar" aria-expanded="false" aria-labelledby="page-date-label page-date-value"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M7 2v6M17 2v6M3 11h18M7 15h3M14 15h3"></path></svg><span id="page-date-value"></span><span aria-hidden="true">⌃</span></button>
+          <div id="date-calendar" class="date-calendar" popover="auto" role="dialog" aria-label="选择收录日期">
+            <div class="calendar-heading"><button type="button" id="calendar-previous" aria-label="上个月">‹</button><strong id="calendar-month" aria-live="polite"></strong><button type="button" id="calendar-next" aria-label="下个月">›</button></div>
+            <div class="calendar-weekdays" aria-hidden="true"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
+            <div id="calendar-days" class="calendar-days" role="group" aria-label="本月收录日期"></div>
+            <p id="calendar-empty" class="calendar-empty" hidden>本月暂无可查看的收录记录</p>
+            <div class="calendar-legend"><span><i aria-hidden="true"></i> 有单词</span><span>描边为今天</span><button type="button" id="calendar-close">关闭</button></div>
+          </div>
+        </div>
+        <span id="page-summary" role="status"></span><button type="button" id="page-next">下一页 →</button>
+      </nav>
+      <div class="table-footer"><span>同一天收录的词放在同一页 · 相关词随主词一起复习</span><span>● 待复习　 ✓ 本次已复习</span></div>
+    </section>
+    </div>
+    <section id="synonyms-page" hidden aria-label="同义替换">
+      <div class="heading"><div><p class="eyebrow">WORDS IN CONTEXT</p><h1>同义替换</h1><p class="intro">把意思相近的词放在一行，记录它们的用法差异。全部手动填写，无需联网查词。</p></div></div>
+      <section class="notebook">
+        <div class="book-toolbar"><strong class="synonyms-title">我的同义词组 <span id="synonym-count">0</span></strong><div class="book-actions"><button id="synonym-export">导出备份</button><button id="synonym-import">导入备份</button><button id="synonym-csv">导出表格</button></div></div>
+        <form id="synonym-add-form" class="add-bar"><label for="new-synonyms">新建一组</label><input id="new-synonyms" autocomplete="off" spellcheck="false" placeholder="如 important, significant, crucial" maxlength="10100" required><button class="primary" type="submit">＋ 添加词组</button><button type="button" id="synonym-blank">添加空白行</button></form>
+        <p class="synonyms-help">用逗号、分号或顿号分隔单词；也可以填写短语。每行可以继续添加单词。</p>
+        <div class="table-scroll"><table class="synonyms-table"><caption class="sr-only">手动编辑同义词组，每组占一行。</caption><colgroup><col class="s-number"><col class="s-words"><col class="s-meaning"><col class="s-note"><col class="s-actions"></colgroup><thead><tr><th scope="col">序号</th><th scope="col">同义词</th><th scope="col">共同含义</th><th scope="col">辨析与备注</th><th scope="col">操作</th></tr></thead><tbody id="synonym-rows"></tbody></table></div>
+        <div id="synonym-empty" class="empty"><span class="empty-mark">≈</span><h2>把相近的词放在一起</h2><p>在上方输入多个单词，新建你的第一组同义替换。</p></div>
+        <div class="table-footer"><span>每行一组 · 点进内容即可编辑 · 自动保存</span><button type="button" data-undo hidden>撤销上一步操作</button></div>
+      </section>
+    </section>
+    <section id="materials-page" hidden aria-label="语料积累">
+      <div class="heading"><div><p class="eyebrow">LANGUAGE IN USE</p><h1>语料积累</h1><p class="intro">收集值得记住的例句、表达和段落，也可以写下自己的学习笔记。</p></div></div>
+      <section class="notebook" aria-label="我的语料">
+        <div class="book-toolbar"><strong class="synonyms-title">我的语料 <span id="material-count">0</span></strong><div class="book-actions"><button id="material-export">导出备份</button><button id="material-import">导入备份</button><button id="material-csv">导出表格</button></div></div>
+        <div class="material-add-bar"><button type="button" class="primary" id="material-add">＋ 添加条目</button><p>自由输入，支持换行；编辑后自动保存。</p></div>
+        <div class="table-scroll"><table class="materials-table"><caption class="sr-only">可自由编辑的语料条目，每条支持多行输入。</caption><colgroup><col class="m-number"><col class="m-content"><col class="m-actions"></colgroup><thead><tr><th scope="col">序号</th><th scope="col">语料内容</th><th scope="col">操作</th></tr></thead><tbody id="material-rows"></tbody></table></div>
+        <div id="material-empty" class="empty"><span class="empty-mark">Aa</span><h2>记下你想留下的表达</h2><p>点击「添加条目」，开始积累你的第一条语料。</p></div>
+        <div class="table-footer"><span>内容可随时修改 · 自动保存到这台电脑</span><button type="button" data-undo hidden>撤销上一步操作</button></div>
+      </section>
+    </section>
+    <footer class="page-footer"><span>保存在这台电脑上 · 建议定期导出备份</span><span>查词需要联网；已保存的单词可离线使用。</span></footer>
+  </main>
+  <dialog id="settings-dialog"><form id="settings-form"><div class="dialog-heading"><h2>安排下一次重逢</h2><button type="button" class="close" data-close aria-label="关闭">×</button></div><p>以收录日期为第 0 天。在这些天数标记复习，错过的任务会保留到完成。</p><label for="intervals">复习间隔（天，用逗号分隔）</label><input id="intervals" required value="0, 1, 2, 6, 14, 30"><p class="muted">这是一组可调整的间隔复习安排，并非遗忘曲线规定的唯一时间表。修改间隔会保留相同天数的复习记录。</p><div id="schedule-example" class="schedule-example"></div><p class="muted">打开单词本即可看到提醒；关闭网页后不会发送通知。</p><div class="dialog-actions"><button type="button" data-close>取消</button><button class="primary" type="submit">保存安排</button></div></form></dialog>
+  <dialog id="entry-dialog"><div class="dialog-heading"><h2 id="entry-dialog-title">单词选项</h2><button type="button" class="close" data-close aria-label="关闭">×</button></div><div id="entry-options"></div></dialog>
+  <dialog id="related-dialog"><form id="related-form"><div class="dialog-heading"><h2 id="related-title">添加相关词</h2><button type="button" class="close" data-close aria-label="关闭">×</button></div><p class="muted" id="related-parent"></p><label for="related-word">相关单词</label><div class="related-word-query"><input id="related-word" maxlength="100" autocomplete="off" spellcheck="false" required placeholder="如 decision"><button type="button" id="related-lookup">查询剑桥</button></div><p id="related-lookup-status" class="muted" role="status">输入单词并移开焦点，即可查询英式音标和中文释义。</p><label for="related-relation">与主词的关系（选填）</label><input id="related-relation" maxlength="200" placeholder="如 派生名词、过去式、复数"><div id="related-senses"></div><button type="button" id="related-add-sense" class="add-related">＋ 添加词性行</button><label for="related-url">链接（选填）</label><input id="related-url" type="url" maxlength="4000" placeholder="https://dictionary.cambridge.org/…"><p class="muted">自动查询 Cambridge 英式音标和中文释义；不同词性分行显示。所有内容均可手动修改，相关词随主词一起复习。</p><div class="dialog-actions"><button type="button" data-close>取消</button><button type="submit" class="primary">保存相关词</button></div></form></dialog>
+  <input id="import-file" type="file" accept="application/json,.json" hidden>
+  <div id="toast" role="status" aria-live="polite" hidden></div>
+  <script type="module" src="/app.js"></script>
+</body></html>
