@@ -1,18 +1,29 @@
-import {newSynonymGroup,parseSynonymWords,toSynonymsCsv} from './model.js';
+import {newSynonymGroup,normalizeWord,parseSynonymWords,toSynonymsCsv} from './model.js';
 
 const $=selector=>document.querySelector(selector);
 const h=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 export function createSynonymsUI({getBook,isReady,change,renderBook,recordUndo,toast,download,getToday,addToBook}){
   const rows=$('#synonym-rows');
+  const search=$('#synonym-search');
+  const clearSearch=$('#synonym-search-clear');
+  const searchSummary=$('#synonym-search-summary');
   function findGroup(element){return getBook()?.synonymGroups.find(group=>group.id===element.closest('tr')?.dataset.group);}
   function render(){
     const book=getBook();if(!book||$('#synonyms-page').hidden)return;
     const active=document.activeElement;
     const focus=rows.contains(active)&&active.dataset.synonymField?{group:active.closest('tr').dataset.group,field:active.dataset.synonymField,index:active.dataset.index,start:active.selectionStart,end:active.selectionEnd}:null;
     $('#synonym-count').textContent=book.synonymGroups.length;
-    $('#synonym-empty').hidden=book.synonymGroups.length>0;
-    rows.innerHTML=book.synonymGroups.map(group=>`<tr data-group="${h(group.id)}">
+    const query=normalizeWord(search.value);
+    const groups=query?book.synonymGroups.filter(group=>
+      [...group.words,group.meaning,group.note].some(value=>normalizeWord(value).includes(query))
+    ):book.synonymGroups;
+    clearSearch.hidden=!search.value;
+    searchSummary.hidden=!query;
+    searchSummary.textContent=query?'找到 '+groups.length+' 组':'';
+    $('#synonym-empty').hidden=Boolean(query)||book.synonymGroups.length>0;
+    $('#synonym-no-results').hidden=!query||groups.length>0;
+    rows.innerHTML=groups.map(group=>`<tr data-group="${h(group.id)}">
       <td><input class="cell-input number" data-synonym-field="number" maxlength="50" value="${h(group.number)}" aria-label="词组序号"></td>
       <td><div class="synonym-words">${group.words.map((word,index)=>`<div class="synonym-word"><input class="cell-input" data-synonym-field="word" data-index="${index}" value="${h(word)}" maxlength="100" spellcheck="false" placeholder="填写单词或短语" aria-label="第 ${index+1} 个同义词"><button type="button" data-synonym-action="remove-word" data-index="${index}" aria-label="移除第 ${index+1} 个同义词">×</button></div>`).join('')}</div><button type="button" class="add-synonym" data-synonym-action="add-word">＋ 添加单词</button></td>
       <td><textarea class="cell-input" data-synonym-field="meaning" maxlength="30000" rows="2" placeholder="如 重要的" aria-label="词组共同含义">${h(group.meaning)}</textarea></td>
@@ -21,13 +32,20 @@ export function createSynonymsUI({getBook,isReady,change,renderBook,recordUndo,t
     </tr>`).join('');
     if(focus){const element=[...rows.querySelectorAll('[data-synonym-field]')].find(el=>el.closest('tr').dataset.group===focus.group&&el.dataset.synonymField===focus.field&&el.dataset.index===focus.index);if(element){element.focus({preventScroll:true});if(focus.start!==null)try{element.setSelectionRange(focus.start,focus.end);}catch{}}}
   }
+  $('#synonym-search-form').onsubmit=event=>event.preventDefault();
+  search.oninput=()=>{if(isReady())renderBook();};
+  clearSearch.onclick=()=>{
+    search.value='';
+    renderBook();
+    search.focus();
+  };
   function focusWord(group,index=0){rows.querySelector(`tr[data-group="${group.id}"] [data-synonym-field="word"][data-index="${index}"]`)?.focus();}
   function addGroup(words){
     if(!isReady())return;
     const book=getBook();if(book.synonymGroups.length>=10000)return toast('最多保存 10000 个词组。');
     if(words.length>100||words.some(word=>word.length>100))return toast('每组最多 100 个词，每个词或短语最多 100 个字符。');
     const number=Math.max(0,...book.synonymGroups.map(group=>Number(group.number)||0))+1;
-    const group=newSynonymGroup(words,number);book.synonymGroups.unshift(group);change();renderBook();return group;
+    const group=newSynonymGroup(words,number);book.synonymGroups.unshift(group);search.value='';change();renderBook();return group;
   }
   $('#synonym-add-form').onsubmit=event=>{event.preventDefault();const words=parseSynonymWords($('#new-synonyms').value);if(!words.length)return toast('请至少输入一个单词或短语。');if(addGroup(words)){$('#new-synonyms').value='';$('#new-synonyms').focus();}};
   $('#synonym-blank').onclick=()=>{const group=addGroup(['']);if(group)focusWord(group);};

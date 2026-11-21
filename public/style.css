@@ -40,6 +40,12 @@ button.answer-cover:hover{background:#dfeafa;border-color:#7699c6}
 #synonym-count{background:#edf1f7;padding:2px 7px;border-radius:4px;font-size:12px;margin-left:5px}
 #synonym-add-form input{max-width:520px}
 .synonyms-help{color:var(--muted);font-size:12px;line-height:1.7;margin:0;padding:0 22px 19px}
+.stored-search.synonym-search{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;padding:12px 14px;background:#f8faff}
+.synonym-search label{font-size:14px;color:#50637d;white-space:nowrap}
+#synonym-search{flex:1 1 170px;max-width:460px;font-size:14px}
+#synonym-search::-webkit-search-cancel-button{appearance:none}
+#synonym-search-summary{flex-shrink:0;color:var(--muted);font-size:13px}
+#synonym-search-clear{padding:7px 11px}
 .synonyms-table{min-width:950px}
 .s-number{width:70px}.s-words{width:36%}.s-meaning{width:21%}.s-note{width:auto}.s-actions{width:105px}
 .synonym-words{display:flex;gap:8px;flex-wrap:wrap}

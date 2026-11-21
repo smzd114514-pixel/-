@@ -46,8 +46,15 @@
         <div class="book-toolbar"><strong class="synonyms-title">我的同义词组 <span id="synonym-count">0</span></strong><div class="book-actions"><button id="synonym-export">导出备份</button><button id="synonym-import">导入备份</button><button id="synonym-csv">导出表格</button></div></div>
         <form id="synonym-add-form" class="add-bar"><label for="new-synonyms">新建一组</label><input id="new-synonyms" autocomplete="off" spellcheck="false" placeholder="如 important, significant, crucial" maxlength="10100" required><button class="primary" type="submit">＋ 添加词组</button><button type="button" id="synonym-blank">添加空白行</button></form>
         <p class="synonyms-help">用逗号、分号或顿号分隔单词；也可以填写短语。每行可以继续添加单词。</p>
+        <form id="synonym-search-form" class="stored-search synonym-search" role="search" aria-label="搜索同义替换">
+          <label for="synonym-search">搜索词组</label>
+          <input id="synonym-search" type="search" placeholder="单词、短语、释义或备注" maxlength="200" autocomplete="off" spellcheck="false" aria-controls="synonym-rows">
+          <button id="synonym-search-clear" type="button" hidden>清空</button>
+          <span id="synonym-search-summary" role="status" hidden></span>
+        </form>
         <div class="table-scroll"><table class="synonyms-table"><caption class="sr-only">手动编辑同义词组，每组占一行。</caption><colgroup><col class="s-number"><col class="s-words"><col class="s-meaning"><col class="s-note"><col class="s-actions"></colgroup><thead><tr><th scope="col">序号</th><th scope="col">同义词</th><th scope="col">共同含义</th><th scope="col">辨析与备注</th><th scope="col">操作</th></tr></thead><tbody id="synonym-rows"></tbody></table></div>
         <div id="synonym-empty" class="empty"><span class="empty-mark">≈</span><h2>把相近的词放在一起</h2><p>在上方输入多个单词，新建你的第一组同义替换。</p></div>
+        <div id="synonym-no-results" class="empty" hidden><h2>没有匹配的词组</h2><p>试试缩短关键词，或清空搜索查看全部词组。</p></div>
         <div class="table-footer"><span>每行一组 · 点进内容即可编辑 · 自动保存</span><button type="button" data-undo hidden>撤销上一步操作</button></div>
       </section>
     </section>
