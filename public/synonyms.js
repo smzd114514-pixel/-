@@ -3,11 +3,11 @@ import {newSynonymGroup,parseSynonymWords,toSynonymsCsv} from './model.js';
 const $=selector=>document.querySelector(selector);
 const h=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-export function createSynonymsUI({getBook,isReady,change,renderBook,recordUndo,toast,download,getToday}){
+export function createSynonymsUI({getBook,isReady,change,renderBook,recordUndo,toast,download,getToday,addToBook}){
   const rows=$('#synonym-rows');
   function findGroup(element){return getBook()?.synonymGroups.find(group=>group.id===element.closest('tr')?.dataset.group);}
   function render(){
-    const book=getBook();if(!book)return;
+    const book=getBook();if(!book||$('#synonyms-page').hidden)return;
     const active=document.activeElement;
     const focus=rows.contains(active)&&active.dataset.synonymField?{group:active.closest('tr').dataset.group,field:active.dataset.synonymField,index:active.dataset.index,start:active.selectionStart,end:active.selectionEnd}:null;
     $('#synonym-count').textContent=book.synonymGroups.length;
@@ -17,7 +17,7 @@ export function createSynonymsUI({getBook,isReady,change,renderBook,recordUndo,t
       <td><div class="synonym-words">${group.words.map((word,index)=>`<div class="synonym-word"><input class="cell-input" data-synonym-field="word" data-index="${index}" value="${h(word)}" maxlength="100" spellcheck="false" placeholder="填写单词或短语" aria-label="第 ${index+1} 个同义词"><button type="button" data-synonym-action="remove-word" data-index="${index}" aria-label="移除第 ${index+1} 个同义词">×</button></div>`).join('')}</div><button type="button" class="add-synonym" data-synonym-action="add-word">＋ 添加单词</button></td>
       <td><textarea class="cell-input" data-synonym-field="meaning" maxlength="30000" rows="2" placeholder="如 重要的" aria-label="词组共同含义">${h(group.meaning)}</textarea></td>
       <td><textarea class="cell-input" data-synonym-field="note" maxlength="30000" rows="2" placeholder="记录语气、搭配或用法差异" aria-label="词组辨析与备注">${h(group.note)}</textarea></td>
-      <td><button type="button" class="remove-group danger" data-synonym-action="remove-group">删除此组</button></td>
+      <td><div class="synonym-actions"><button type="button" data-synonym-action="add-to-book">整组加入单词本</button><button type="button" class="remove-group danger" data-synonym-action="remove-group">删除此组</button></div></td>
     </tr>`).join('');
     if(focus){const element=[...rows.querySelectorAll('[data-synonym-field]')].find(el=>el.closest('tr').dataset.group===focus.group&&el.dataset.synonymField===focus.field&&el.dataset.index===focus.index);if(element){element.focus({preventScroll:true});if(focus.start!==null)try{element.setSelectionRange(focus.start,focus.end);}catch{}}}
   }
@@ -36,6 +36,7 @@ export function createSynonymsUI({getBook,isReady,change,renderBook,recordUndo,t
   rows.addEventListener('click',event=>{
     const button=event.target.closest('[data-synonym-action]');if(!button||!isReady())return;const group=findGroup(button);if(!group)return;
     const action=button.dataset.synonymAction;
+    if(action==='add-to-book'){addToBook(group);return;}
     if(action==='add-word'){if(group.words.length>=100)return toast('每组最多 100 个词。');group.words.push('');change();renderBook();focusWord(group,group.words.length-1);}
     if(action==='remove-word'){recordUndo();const index=Number(button.dataset.index);if(group.words.length===1)group.words[0]='';else group.words.splice(index,1);change();renderBook();focusWord(group,Math.min(index,group.words.length-1));toast('已移除，可在底部撤销。');}
     if(action==='remove-group'){recordUndo();getBook().synonymGroups=getBook().synonymGroups.filter(item=>item!==group);change();renderBook();toast('已删除词组，可在底部撤销。');}

@@ -10,7 +10,7 @@
 <body>
   <header class="topbar"><a class="brand" href="/" aria-label="词页首页"><span class="brand-mark">词</span><span>词页 <small>WORD BY WORD</small></span></a><div class="top-right"><span class="local-label">我的本地单词本</span><span id="save-state" role="status">正在读取…</span></div></header>
   <main>
-    <nav class="page-nav" aria-label="学习页面"><a href="#wordbook" id="wordbook-nav" class="active" aria-current="page">单词本</a><a href="#synonyms" id="synonyms-nav">同义替换</a><a href="#materials" id="materials-nav">语料积累</a></nav>
+    <nav class="page-nav" aria-label="学习页面"><a href="#wordbook" id="wordbook-nav" class="active" aria-current="page">单词本</a><a href="#synonyms" id="synonyms-nav">同义替换</a><a href="#materials" id="materials-nav">自由笔记<span id="note-nav-due" hidden></span></a></nav>
     <div id="wordbook-page">
     <section class="heading"><div><p class="eyebrow">UIBE · ENGLISH NOTEBOOK</p><h1>把新词，变成你的词。</h1><p class="intro">记下一词，按时重逢。英式发音与中文释义来自 Cambridge Dictionary。</p></div><div class="today"><span id="today-date"></span><span id="today-week"></span></div></section>
     <section class="review-strip" aria-label="复习概览"><div><span class="review-symbol">✳</span><span id="review-summary">今天的复习清单</span></div><button class="text-button" id="settings-button">复习间隔 <span id="interval-label">0 / 1 / 2 / 6 / 14 / 30 天</span></button></section>
@@ -41,7 +41,7 @@
     </section>
     </div>
     <section id="synonyms-page" hidden aria-label="同义替换">
-      <div class="heading"><div><p class="eyebrow">WORDS IN CONTEXT</p><h1>同义替换</h1><p class="intro">把意思相近的词放在一行，记录它们的用法差异。全部手动填写，无需联网查词。</p></div></div>
+      <div class="heading"><div><p class="eyebrow">WORDS IN CONTEXT</p><h1>同义替换</h1><p class="intro">记录相近词的用法差异，也可整组收录到单词本，逐词查询剑桥词典。</p></div></div>
       <section class="notebook">
         <div class="book-toolbar"><strong class="synonyms-title">我的同义词组 <span id="synonym-count">0</span></strong><div class="book-actions"><button id="synonym-export">导出备份</button><button id="synonym-import">导入备份</button><button id="synonym-csv">导出表格</button></div></div>
         <form id="synonym-add-form" class="add-bar"><label for="new-synonyms">新建一组</label><input id="new-synonyms" autocomplete="off" spellcheck="false" placeholder="如 important, significant, crucial" maxlength="10100" required><button class="primary" type="submit">＋ 添加词组</button><button type="button" id="synonym-blank">添加空白行</button></form>
@@ -51,13 +51,12 @@
         <div class="table-footer"><span>每行一组 · 点进内容即可编辑 · 自动保存</span><button type="button" data-undo hidden>撤销上一步操作</button></div>
       </section>
     </section>
-    <section id="materials-page" hidden aria-label="语料积累">
-      <div class="heading"><div><p class="eyebrow">LANGUAGE IN USE</p><h1>语料积累</h1><p class="intro">收集值得记住的例句、表达和段落，也可以写下自己的学习笔记。</p></div></div>
-      <section class="notebook" aria-label="我的语料">
-        <div class="book-toolbar"><strong class="synonyms-title">我的语料 <span id="material-count">0</span></strong><div class="book-actions"><button id="material-export">导出备份</button><button id="material-import">导入备份</button><button id="material-csv">导出表格</button></div></div>
-        <div class="material-add-bar"><button type="button" class="primary" id="material-add">＋ 添加条目</button><p>自由输入，支持换行；编辑后自动保存。</p></div>
-        <div class="table-scroll"><table class="materials-table"><caption class="sr-only">可自由编辑的语料条目，每条支持多行输入。</caption><colgroup><col class="m-number"><col class="m-content"><col class="m-actions"></colgroup><thead><tr><th scope="col">序号</th><th scope="col">语料内容</th><th scope="col">操作</th></tr></thead><tbody id="material-rows"></tbody></table></div>
-        <div id="material-empty" class="empty"><span class="empty-mark">Aa</span><h2>记下你想留下的表达</h2><p>点击「添加条目」，开始积累你的第一条语料。</p></div>
+    <section id="materials-page" hidden aria-label="自由笔记">
+      <div class="heading"><h1>自由笔记</h1></div>
+      <section class="notebook" aria-label="我的笔记">
+        <div class="book-toolbar note-toolbar"><div class="note-toolbar-start"><button type="button" class="primary" id="material-add">＋ 新建笔记</button><span id="note-list-summary" class="muted"></span></div><div class="book-actions"><button id="material-export">导出备份</button><button id="material-import">导入备份</button><button id="material-csv">导出表格</button></div></div>
+        <ul id="material-rows" class="note-list" aria-label="笔记列表"></ul>
+        <div id="material-empty" class="empty"><p>点击「新建笔记」，记下例句、表达或学习心得。</p></div>
         <div class="table-footer"><span>内容可随时修改 · 自动保存到这台电脑</span><button type="button" data-undo hidden>撤销上一步操作</button></div>
       </section>
     </section>
@@ -66,6 +65,36 @@
   <dialog id="settings-dialog"><form id="settings-form"><div class="dialog-heading"><h2>安排下一次重逢</h2><button type="button" class="close" data-close aria-label="关闭">×</button></div><p>以收录日期为第 0 天。在这些天数标记复习，错过的任务会保留到完成。</p><label for="intervals">复习间隔（天，用逗号分隔）</label><input id="intervals" required value="0, 1, 2, 6, 14, 30"><p class="muted">这是一组可调整的间隔复习安排，并非遗忘曲线规定的唯一时间表。修改间隔会保留相同天数的复习记录。</p><div id="schedule-example" class="schedule-example"></div><p class="muted">打开单词本即可看到提醒；关闭网页后不会发送通知。</p><div class="dialog-actions"><button type="button" data-close>取消</button><button class="primary" type="submit">保存安排</button></div></form></dialog>
   <dialog id="entry-dialog"><div class="dialog-heading"><h2 id="entry-dialog-title">单词选项</h2><button type="button" class="close" data-close aria-label="关闭">×</button></div><div id="entry-options"></div></dialog>
   <dialog id="related-dialog"><form id="related-form"><div class="dialog-heading"><h2 id="related-title">添加相关词</h2><button type="button" class="close" data-close aria-label="关闭">×</button></div><p class="muted" id="related-parent"></p><label for="related-word">相关单词</label><div class="related-word-query"><input id="related-word" maxlength="100" autocomplete="off" spellcheck="false" required placeholder="如 decision"><button type="button" id="related-lookup">查询剑桥</button></div><p id="related-lookup-status" class="muted" role="status">输入单词并移开焦点，即可查询英式音标和中文释义。</p><label for="related-relation">与主词的关系（选填）</label><input id="related-relation" maxlength="200" placeholder="如 派生名词、过去式、复数"><div id="related-senses"></div><button type="button" id="related-add-sense" class="add-related">＋ 添加词性行</button><label for="related-url">链接（选填）</label><input id="related-url" type="url" maxlength="4000" placeholder="https://dictionary.cambridge.org/…"><p class="muted">自动查询 Cambridge 英式音标和中文释义；不同词性分行显示。所有内容均可手动修改，相关词随主词一起复习。</p><div class="dialog-actions"><button type="button" data-close>取消</button><button type="submit" class="primary">保存相关词</button></div></form></dialog>
+  <dialog id="note-editor" aria-labelledby="note-editor-title">
+    <div class="note-editor-layout">
+      <header class="note-editor-header">
+        <button type="button" id="note-editor-back" data-close>← 返回笔记列表</button>
+        <div><h2 id="note-editor-title">编辑笔记</h2><div id="note-created" class="muted"></div></div>
+        <button type="button" id="note-save-state" class="text-button" aria-live="polite"></button>
+      </header>
+      <div class="note-editor-main">
+        <div class="note-body">
+          <label for="note-content">笔记正文</label>
+          <textarea id="note-content" maxlength="100000" placeholder="写下你的笔记…" autofocus></textarea>
+        </div>
+        <aside class="note-settings" aria-labelledby="note-settings-title">
+          <h3 id="note-settings-title">笔记设置</h3>
+          <label for="note-number">序号</label><input id="note-number" maxlength="50">
+          <form id="note-review-form">
+            <label for="note-intervals">复习间隔（天）</label>
+            <input id="note-intervals" maxlength="200" placeholder="如 0, 1, 3, 7" aria-describedby="note-review-help note-review-error">
+            <p id="note-review-help" class="muted">以首次设置当天为第 0 天，用逗号分隔。留空并保存可关闭复习。</p>
+            <p id="note-review-error" class="note-error" role="alert" hidden></p>
+            <button type="submit">保存复习安排</button>
+          </form>
+          <div id="note-review-state" class="note-review-state" aria-live="polite"></div>
+          <button type="button" id="note-review-done" hidden>标记已复习</button>
+          <button type="button" id="note-review-undo" hidden>撤销本次复习</button>
+          <button type="button" class="danger" id="note-delete">删除笔记</button>
+        </aside>
+      </div>
+    </div>
+  </dialog>
   <input id="import-file" type="file" accept="application/json,.json" hidden>
   <div id="toast" role="status" aria-live="polite" hidden></div>
   <script type="module" src="/app.js"></script>

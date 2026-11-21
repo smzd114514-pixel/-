@@ -5,7 +5,7 @@ $appUrl = 'http://127.0.0.1:' + $Port
 function Test-Wordbook {
     try {
         $reply = Invoke-RestMethod -Uri ($appUrl + '/api/health') -TimeoutSec 2
-        return $reply.app -eq 'uibe-wordbook' -and $reply.version -eq 4
+        return $reply.app -eq 'uibe-wordbook' -and $reply.version -eq 5
     } catch { return $false }
 }
 try {

@@ -1,12 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
+import http from 'node:http';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {once} from 'node:events';
+import {setTimeout as delay} from 'node:timers/promises';
 import {newEntry,newRelatedWord,newSynonymGroup,newMaterial} from '../public/model.js';
-test('HTTP migration, feature persistence after restart, backups, and overwrite protection',async()=>{
+test('HTTP migration, feature persistence after restart, backups, and overwrite protection',async(t)=>{
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'wordbook-test-'));
   const legacyEntry=newEntry('decide',1);delete legacyEntry.relatedWords;
   const legacyText=JSON.stringify({schema:1,revision:0,settings:{intervals:[0,1,2]},entries:[legacyEntry]});
@@ -21,13 +23,14 @@ test('HTTP migration, feature persistence after restart, backups, and overwrite 
   const put=book=>fetch(url+'/api/book',{method:'PUT',headers:{'Content-Type':'application/json','X-Wordbook':'1'},body:JSON.stringify(book)});
   const read=async()=>await(await fetch(url+'/api/book')).json();
   try{
-    await start();assert.equal((await(await fetch(url+'/api/health')).json()).version,4);
-    let book=await read();assert.equal(book.schema,4);assert.deepEqual(book.entries[0].relatedWords,[]);assert.deepEqual(book.synonymGroups,[]);assert.deepEqual(book.materials,[]);
+    await start();assert.equal((await(await fetch(url+'/api/health')).json()).version,5);
+    let book=await read();assert.equal(book.schema,5);assert.deepEqual(book.entries[0].relatedWords,[]);assert.deepEqual(book.synonymGroups,[]);assert.deepEqual(book.materials,[]);
     assert.equal(fs.readFileSync(path.join(dir,'wordbook.json'),'utf8'),legacyText);
     assert.equal((await put(JSON.parse(legacyText))).status,409);
     assert.equal(fs.readFileSync(path.join(dir,'wordbook.json'),'utf8'),legacyText);
     assert.equal((await put({...book,schema:2})).status,409);
     assert.equal((await put({...book,schema:3})).status,409);
+    assert.equal((await put({...book,schema:4})).status,409);
     const related={...newRelatedWord('decision'),relation:'派生名词',importance:10};related.senses[0].meaning='决定';book.entries[0].importance=10;book.entries[0].relatedWords.push(related);
     book.synonymGroups.push({...newSynonymGroup(['important','significant'],1),meaning:'重要的'});
     book.materials.push(newMaterial('A useful expression.\n中文笔记',1));
@@ -44,8 +47,23 @@ test('HTTP migration, feature persistence after restart, backups, and overwrite 
     assert.equal(book.entries[0].relatedWords[0].senses[0].meaning,'决定；决策');assert.equal(book.entries[0].relatedWords[0].importance,10);assert.equal(book.entries[0].importance,10);assert.equal(book.synonymGroups[0].note,'不同搭配');
     assert.equal(book.materials[0].content,'A useful expression.\n中文笔记\n自由修改');
     response=await fetch(url+'/api/book',{method:'PUT',headers:{'Origin':'https://example.com','X-Wordbook':'1'},body:JSON.stringify(book)});assert.equal(response.status,403);
-    assert.equal((await put({schema:4})).status,400);for(const file of ['/synonyms.js','/materials.js','/lookup.js','/notebook-nav.js'])assert.equal((await fetch(url+file)).status,200);
+    assert.equal((await put({schema:5})).status,400);for(const file of ['/synonyms.js','/materials.js','/lookup.js','/notebook-nav.js'])assert.equal((await fetch(url+file)).status,200);
     assert.equal((await fetch(url+'/data/wordbook.json')).status,404);assert.equal((await fetch(url+'/api/lookup?word=123')).status,400);
+    await t.test('Chinese and emoji survive a request split inside a UTF-8 character',async()=>{
+      const current=await read();current.materials[0].content+='\n分段保存：中文与🦉';
+      const payload=Buffer.from(JSON.stringify(current),'utf8');
+      const split=payload.indexOf(Buffer.from('分段保存：','utf8'))+1;
+      assert.ok(split>1);
+      const reply=await new Promise((resolve,reject)=>{
+        const request=http.request(url+'/api/book',{method:'PUT',headers:{'Content-Type':'application/json','X-Wordbook':'1','Content-Length':payload.length}},response=>{
+          response.resume();response.on('end',()=>resolve(response.statusCode));response.on('error',reject);
+        });
+        request.setTimeout(5000,()=>request.destroy(new Error('Fragmented save timed out')));request.on('error',reject);
+        request.write(payload.subarray(0,split));
+        delay(30).then(()=>request.end(payload.subarray(split))).catch(reject);
+      });
+      assert.equal(reply,200);assert.deepEqual((await read()).materials,current.materials);
+    });
     fs.writeFileSync(path.join(dir,'wordbook.json'),'broken');assert.equal((await fetch(url+'/api/book')).status,500);
     assert.notEqual((await put(book)).status,200);assert.equal(fs.readFileSync(path.join(dir,'wordbook.json'),'utf8'),'broken');
   }finally{if(server?.exitCode===null)await stop();}

@@ -1,4 +1,4 @@
-import {localDate,addDays,reviewInfo,parseIntervals,dictionaryUrl,safeUrl,blankSense,newEntry,newRelatedWord,validateBook,toCsv,datePage} from './model.js';
+import {localDate,addDays,reviewInfo,parseIntervals,dictionaryUrl,safeUrl,blankSense,newEntry,newRelatedWord,normalizeWord,validateBook,toCsv,datePage,BOOK_SCHEMA} from './model.js';
 import {createSynonymsUI} from './synonyms.js';
 import {createMaterialsUI} from './materials.js';
 import {lookupVocabulary} from './lookup.js';
@@ -50,7 +50,12 @@ $('#conceal-again').onclick=()=>{revealedEntries.clear();applyConcealment();};
 $('#word-rows').addEventListener('click',event=>{const button=event.target.closest('[data-conceal-action]');if(!button)return;const id=button.closest('tr').dataset.entry;if(button.dataset.concealAction==='reveal')revealedEntries.add(id);else revealedEntries.delete(id);applyConcealment();const next=[...document.querySelectorAll('[data-conceal-action]')].find(el=>el.closest('tr').dataset.entry===id);next?.focus({preventScroll:true});});
 applyConcealment();
 function toast(message){$('#toast').textContent=message;$('#toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').hidden=true,5500);}
-function savedLabel(text,error=false){$('#save-state').textContent=text;$('#save-state').classList.toggle('error',error);}
+function savedLabel(text,error=false){
+  for(const element of [$('#save-state'),$('#note-save-state')]){
+    element.textContent=text;
+    element.classList.toggle('error',error);
+  }
+}
 function localRecovery(){try{localStorage.setItem(RECOVERY,JSON.stringify(book));}catch{}}
 function change(){if(!ready)return;dirty=true;saveFailure=false;localRecovery();savedLabel(saveConflict?'存在冲突 · 请导出备份':'正在保存…',saveConflict);clearTimeout(saveTimer);if(!saveConflict)saveTimer=setTimeout(flush,350);}
 async function flush(){
@@ -102,10 +107,70 @@ function render(){
   if(focus){const restored=[...document.querySelectorAll('[data-field]')].find(el=>el.closest('tr')?.dataset.entry===focus.entry&&el.dataset.field===focus.field&&el.dataset.sense===focus.sense&&el.dataset.related===focus.related);if(restored&&!restored.closest('.is-concealed')){restored.focus({preventScroll:true});if(focus.start!==null)try{restored.setSelectionRange(focus.start,focus.end);}catch{}}}
   else if(buttonFocus){const restored=[...document.querySelectorAll('#word-rows [data-action]')].find(el=>el.closest('tr').dataset.entry===buttonFocus.entry&&el.closest('tr').dataset.related===buttonFocus.related&&el.dataset.action===buttonFocus.action);if(restored&&!restored.disabled&&!restored.closest('.is-concealed'))restored.focus({preventScroll:true});}
 }
-function resize(el){if(!el.getClientRects().length)return;el.style.height='auto';el.style.height=el.scrollHeight+'px';}function resizeAll(){document.querySelectorAll('textarea').forEach(resize);}
+function resize(el){if(!el.getClientRects().length)return;el.style.height='auto';el.style.height=el.scrollHeight+'px';}function resizeAll(){document.querySelectorAll('textarea:not(#note-content)').forEach(resize);}
 function recordUndo(){undo.push(JSON.stringify(book));if(undo.length>20)undo.shift();document.querySelectorAll('[data-undo]').forEach(button=>button.hidden=false);}
 function lookupKey(entry,related=null){return related?entry.id+'/'+related.id:entry.id;}
 function lookupEntry(entry,replace=false,related=null){const target=related||entry,key=lookupKey(entry,related);targetRequestKeys.set(target,key);return lookupVocabulary(target,{requests,key,replace,isPresent:()=>book.entries.includes(entry)&&(!related||entry.relatedWords.includes(related)),update:()=>{change();render();}});}
+function showTodayEntry(entry){
+  filter='all';
+  activeDate=entry.date;
+  if(location.hash!=='#wordbook')location.hash='#wordbook';
+  showPage();
+  render();
+  const row=[...$('#word-rows').rows].find(row=>row.dataset.entry===entry.id);
+  row?.scrollIntoView({block:'nearest'});
+}
+function restartEntryReview(entry){
+  if(!ready||!book.entries.includes(entry)||!entry.word.trim())return;
+  recordUndo();
+  entry.date=localDate();
+  entry.reviews={};
+  book.entries=[entry,...book.entries.filter(other=>other!==entry)];
+  change();
+  showTodayEntry(entry);
+  toast('已重新加入今日生词，复习记录已重置。可在底部撤销。');
+}
+function addSynonymGroupToBook(group){
+  const uniqueWords=new Map();
+  for(const rawWord of group.words){
+    const word=rawWord.trim();
+    const key=normalizeWord(word);
+    if(word&&!uniqueWords.has(key))uniqueWords.set(key,word);
+  }
+  const words=[...uniqueWords.values()];
+  if(!words.length)return toast('请先填写至少一个单词或短语。');
+  if(book.entries.length>=10000)return toast('单词本最多保存 10000 个主词。');
+  const date=localDate();
+  const sameGroup=book.entries.find(entry=>{
+    if(entry.date!==date||entry.relatedWords.length!==words.length-1)return false;
+    return [entry,...entry.relatedWords].every((target,index)=>normalizeWord(target.word)===normalizeWord(words[index]));
+  });
+  if(sameGroup){
+    showTodayEntry(sameGroup);
+    toast('这组词今天已收录。');
+    return;
+  }
+  const nextNumber=Math.max(0,...book.entries.map(entry=>Number(entry.number)||0))+1;
+  const entry=newEntry(words[0],nextNumber);
+  entry.relatedWords=words.slice(1).map(word=>({...newRelatedWord(word),relation:'同义替换'}));
+  const targets=[entry,...entry.relatedWords];
+  for(const target of targets)target.lookupStatus='loading';
+  recordUndo();
+  book.entries.unshift(entry);
+  change();
+  showTodayEntry(entry);
+  toast('已收录这一组词，正在逐词查询剑桥词典。');
+  void lookupSynonymGroup(entry,targets.map(target=>({target,word:target.word})));
+}
+async function lookupSynonymGroup(entry,targets){
+  for(const {target,word} of targets){
+    if(!book.entries.includes(entry))return;
+    const related=target===entry?null:target;
+    if(related&&!entry.relatedWords.includes(related))continue;
+    if(target.word!==word||target.lookupStatus!=='loading')continue;
+    await lookupEntry(entry,false,related);
+  }
+}
 function invalidateWord(target,key){requests.delete(targetRequestKeys.get(target)||key);if(target.lookedUpWord&&target.word.trim()!==target.lookedUpWord){target.lookupStatus='manual';target.lookupMessage='单词已修改，可选择重新查词。';}else if(target.lookupStatus==='loading'){target.lookupStatus='';target.lookupMessage='';}}
 function addWord(word){if(!ready)return;if(word.trim().length>100)throw new Error('单词长度不能超过 100 个字符。');const max=Math.max(0,...book.entries.map(e=>Number(e.number)||0));const e=newEntry(word,max+1);book.entries.unshift(e);filter='all';activeDate=e.date;change();render();if(word.trim())void lookupEntry(e);else{$(`tr[data-entry="${e.id}"] [data-field="word"]`).focus();}return e;}
 $('#add-form').addEventListener('submit',event=>{event.preventDefault();const value=$('#new-word').value.trim();if(value){addWord(value);$('#new-word').value='';$('#new-word').focus();}});
@@ -142,6 +207,15 @@ function openEntry(e){
   $('#entry-dialog-title').textContent=e.word||'空白单词';const info=reviewInfo(e,book.settings.intervals,today);
   $('#entry-options').innerHTML=`<label for="edit-url">词典链接（可自由修改）</label><input id="edit-url" type="url" maxlength="4000" value="${h(e.url)}" placeholder="https://dictionary.cambridge.org/…"><div class="entry-actions"><button id="save-url" class="primary">保存链接</button><button id="add-sense">＋ 添加词性行</button><button id="relookup">重新查词</button><button id="remove-word" class="danger">删除单词</button></div><h3>复习安排</h3>${info.schedule.map(r=>`<div class="schedule-row"><span>第 ${r.day} 天 · ${r.date}</span><span>${r.done?'✓ '+r.done+' 已复习':r.date<=today?'● 待复习':'未到期'}</span></div>`).join('')}<p class="muted">词条来源：Cambridge English–Chinese (Simplified) Dictionary。允许按你的学习需要修改；重新查词会替换音标和释义。</p>`;
   const relatedButton=document.createElement('button');relatedButton.textContent='＋ 添加相关词';relatedButton.onclick=()=>{$('#entry-dialog').close();openRelated(e);};$('.entry-actions').append(relatedButton);
+  if(e.word.trim()){
+    const restartButton=document.createElement('button');
+    restartButton.textContent='重新加入今日生词';
+    restartButton.onclick=()=>{
+      $('#entry-dialog').close();
+      restartEntryReview(e);
+    };
+    $('.entry-actions').prepend(restartButton);
+  }
   $('#save-url').onclick=()=>{const url=$('#edit-url').value.trim();if(url&&!safeUrl(url)){toast('请输入以 http:// 或 https:// 开头的完整链接。');return;}e.url=url;change();render();$('#entry-dialog').close();};
   $('#add-sense').onclick=()=>{if(e.senses.length>=100)return toast('每个单词最多 100 行。');e.senses.push(blankSense());change();render();$('#entry-dialog').close();};
   $('#relookup').onclick=()=>{if(!e.word.trim())return toast('请先输入单词。');if(e.senses.some(s=>s.ipa||s.pos||s.meaning)&&!confirm('重新查词会替换当前音标、词性和释义，继续吗？'))return;recordUndo();$('#entry-dialog').close();void lookupEntry(e,true);};
@@ -197,24 +271,61 @@ function download(content,name,type){const url=URL.createObjectURL(new Blob([con
 function interruptLookups(){let interrupted=false;for(const entry of book.entries)for(const target of [entry,...entry.relatedWords])if(target.lookupStatus==='loading'){target.lookupStatus='error';target.lookupMessage='上次查询未完成；请重试查词。';interrupted=true;}return interrupted;}
 $('#export-button').onclick=()=>{if(book)download(JSON.stringify(book,null,2),`词页备份-${today}.json`,'application/json');};$('#csv-button').onclick=()=>{if(book)download(toCsv(book),`英语单词本-${today}.csv`,'text/csv;charset=utf-8');};
 $('#import-button').onclick=()=>{if(ready)$('#import-file').click();};
-$('#import-file').onchange=async event=>{const file=event.target.files[0];if(!file)return;try{if(file.size>20*1024*1024)throw new Error('备份文件不能超过 20 MB。');const imported=validateBook(JSON.parse(await file.text()));if(!confirm(`将用备份中的 ${imported.entries.length} 个主词、${imported.synonymGroups.length} 个同义词组和 ${imported.materials.length} 条语料替换当前全部内容。当前内容会自动导出一份备份，也可以撤销。继续吗？`))return;download(JSON.stringify(book,null,2),`导入前备份-${today}.json`,'application/json');recordUndo();requests.clear();const rev=book.revision;book=imported;book.revision=rev;interruptLookups();activeDate=null;notebookNavigation.close();change();render();toast('备份已导入。');}catch(e){toast(e.message||'无法读取备份。');}finally{event.target.value='';}};
+$('#import-file').onchange=async event=>{const file=event.target.files[0];if(!file)return;try{if(file.size>20*1024*1024)throw new Error('备份文件不能超过 20 MB。');const imported=validateBook(JSON.parse(await file.text()));if(!confirm(`将用备份中的 ${imported.entries.length} 个主词、${imported.synonymGroups.length} 个同义词组和 ${imported.materials.length} 条笔记替换当前全部内容。当前内容会自动导出一份备份，也可以撤销。继续吗？`))return;download(JSON.stringify(book,null,2),`导入前备份-${today}.json`,'application/json');recordUndo();requests.clear();const rev=book.revision;book=imported;book.revision=rev;interruptLookups();activeDate=null;notebookNavigation.close();change();render();toast('备份已导入。');}catch(e){toast(e.message||'无法读取备份。');}finally{event.target.value='';}};
 $('#save-state').onclick=()=>{if(dirty&&!saveConflict){saveFailure=false;void flush();}};
 const undoButton=document.createElement('button');undoButton.id='undo-button';undoButton.dataset.undo='';undoButton.textContent='撤销上一步操作';undoButton.hidden=true;$('#wordbook-page .table-footer').append(undoButton);
 document.querySelectorAll('[data-undo]').forEach(button=>button.onclick=()=>{if(!undo.length)return;requests.clear();const rev=book.revision;book=JSON.parse(undo.pop());book.revision=rev;interruptLookups();document.querySelectorAll('[data-undo]').forEach(el=>el.hidden=!undo.length);change();render();toast('已撤销。');});
-const synonymsUI=createSynonymsUI({getBook:()=>book,isReady:()=>ready,change,renderBook:render,recordUndo,toast,download,getToday:()=>today});
+const synonymsUI=createSynonymsUI({getBook:()=>book,isReady:()=>ready,change,renderBook:render,recordUndo,toast,download,getToday:()=>today,addToBook:addSynonymGroupToBook});
 const materialsUI=createMaterialsUI({getBook:()=>book,isReady:()=>ready,change,renderBook:render,recordUndo,toast,download,getToday:()=>today});
 const notebookNavigation=createNotebookNavigation({getBook:()=>book,onDate:date=>{activeDate=date;render();$('#wordbook-page .table-scroll').scrollIntoView({block:'start'});},onResult:result=>{
   filter='all';activeDate=result.date;revealedEntries.add(result.parentId);if(location.hash!=='#wordbook')location.hash='#wordbook';showPage();render();
   const row=[...$('#word-rows').rows].find(row=>row.dataset.entry===result.parentId&&(row.dataset.related||null)===result.relatedId);
   if(row){row.scrollIntoView({block:'center'});row.classList.add('search-target');row.querySelector('[data-field="word"]')?.focus({preventScroll:true});setTimeout(()=>row.classList.remove('search-target'),2400);}
 }});
-function showPage(){const page=['synonyms','materials'].includes(location.hash.slice(1))?location.hash.slice(1):'wordbook';for(const name of ['wordbook','synonyms','materials']){const selected=name===page;$('#'+name+'-page').hidden=!selected;const link=$('#'+name+'-nav');link.classList.toggle('active',selected);if(selected)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');}resizeAll();}
+function showPage(){
+  const page=['synonyms','materials'].includes(location.hash.slice(1))?location.hash.slice(1):'wordbook';
+  for(const name of ['wordbook','synonyms','materials']){
+    const selected=name===page;
+    $('#'+name+'-page').hidden=!selected;
+    const link=$('#'+name+'-nav');
+    link.classList.toggle('active',selected);
+    if(selected)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');
+  }
+  if(page==='synonyms')synonymsUI.render();
+  if(page==='materials')materialsUI.render();
+  resizeAll();
+}
 window.addEventListener('hashchange',showPage);showPage();
 window.addEventListener('beforeunload',event=>{if(dirty||saving||requests.size){localRecovery();event.preventDefault();event.returnValue='';}});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){void flush();}else rollover();});function rollover(){const now=localDate();if(now!==today){today=now;showDate();render();}}setInterval(rollover,30000);window.addEventListener('resize',resizeAll);
 function showDate(){$('#today-date').textContent=new Date().toLocaleDateString('zh-CN',{year:'numeric',month:'long',day:'numeric'});$('#today-week').textContent=new Date().toLocaleDateString('zh-CN',{weekday:'long'});}showDate();
 async function boot(){
-  try{const health=await(await fetch('/api/health')).json();if(health.version!==4)throw new Error('本地服务需要更新。请重新启动单词本，再刷新页面。');const response=await fetch('/api/book');const result=await response.json();if(!response.ok)throw new Error(result.error);book=validateBook(result);ready=true;let recovery;try{const text=localStorage.getItem(RECOVERY);if(text)recovery=validateBook(JSON.parse(text));}catch{}if(recovery){if(confirm('检测到上次未保存的编辑。是否恢复？选择取消会先下载这份编辑的备份。')){const rev=book.revision;book=recovery;book.revision=rev;change();}else{download(JSON.stringify(recovery,null,2),`未保存编辑-${today}.json`,'application/json');localStorage.removeItem(RECOVERY);}}if(interruptLookups())change();if(!dirty)savedLabel('已保存到电脑');render();registerTools();}
+  try{
+    const health=await(await fetch('/api/health')).json();
+    if(health.version!==BOOK_SCHEMA)throw new Error('本地服务需要更新。请重新启动单词本，再刷新页面。');
+    const response=await fetch('/api/book');
+    const result=await response.json();
+    if(!response.ok)throw new Error(result.error);
+    book=validateBook(result);
+    ready=true;
+    let recovery;
+    try{const stored=localStorage.getItem(RECOVERY);if(stored)recovery=validateBook(JSON.parse(stored));}catch{}
+    if(recovery){
+      const currentRevision=recovery.revision===book.revision;
+      if(currentRevision&&confirm('检测到上次未保存的编辑。是否恢复？选择取消会先下载这份编辑的备份。')){
+        book=recovery;
+        change();
+      }else{
+        download(JSON.stringify(recovery,null,2),`未保存编辑-${today}.json`,'application/json');
+        localStorage.removeItem(RECOVERY);
+        if(!currentRevision)toast('电脑上已有更新的内容，上次未保存的编辑已单独导出。');
+      }
+    }
+    if(interruptLookups())change();
+    if(!dirty)savedLabel('已保存到电脑');
+    render();
+    registerTools();
+  }
   catch(e){savedLabel('无法读取单词本',true);$('#empty-state h2').textContent='暂时无法读取单词本';$('#empty-state p').textContent=e.message;toast(e.message);document.querySelectorAll('#add-form button,#add-form input,#blank-button,#synonym-add-form button,#synonym-add-form input,#material-add').forEach(el=>el.disabled=true);}
 }
 function registerTools(){const context=document.modelContext;if(!context?.registerTool)return;const lifecycle=new AbortController();window.addEventListener('pagehide',()=>lifecycle.abort(),{once:true});const tool={name:'read_wordbook',description:'Read the vocabulary and review status shown in this local notebook.',inputSchema:{type:'object',properties:{dueOnly:{type:'boolean'}},additionalProperties:false},annotations:{readOnlyHint:true,untrustedContentHint:true},execute:input=>{if(!input||typeof input!=='object'||Object.keys(input).some(k=>k!=='dueOnly')||('dueOnly'in input&&typeof input.dueOnly!=='boolean'))throw new Error('Invalid input');return book.entries.filter(e=>!input.dueOnly||reviewInfo(e,book.settings.intervals,today).due.length).map(e=>({word:e.word,date:e.date,senses:e.senses,due:reviewInfo(e,book.settings.intervals,today).due.map(r=>r.date)}));}};try{Promise.resolve(context.registerTool(tool,{signal:lifecycle.signal})).catch(()=>{});}catch{}}

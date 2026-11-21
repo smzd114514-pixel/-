@@ -118,11 +118,104 @@ button.answer-cover:hover{background:#dfeafa;border-color:#7699c6}
 .search-target td{box-shadow:inset 0 3px #87addc;background:#eaf3ff}
 @media(max-width:850px){.stored-search{margin:0 14px 16px}#search-form{flex-wrap:wrap;gap:8px;padding:12px}#search-form label{width:100%}#search-results button{grid-template-columns:1fr 2fr;gap:6px 12px}#search-results time{grid-column:1/-1;text-align:left;padding-top:0}.date-pagination{padding:14px;gap:9px}#page-summary{flex-basis:100%;text-align:center;order:1}}
 
-#material-count{background:#edf1f7;padding:2px 7px;border-radius:4px;font-size:12px;margin-left:5px}
-.material-add-bar{display:flex;align-items:center;gap:15px;padding:20px 22px}
-.material-add-bar p{margin:0;color:var(--muted);font-size:13px;line-height:1.7}
-.materials-table{min-width:0}
-.m-number{width:80px}.m-actions{width:110px}
-.material-content{font-size:16px;line-height:1.9;min-height:120px;overflow:hidden;padding:10px 12px;white-space:pre-wrap;overflow-wrap:anywhere;resize:vertical}
-.materials-table td{padding-top:18px;padding-bottom:18px}
-@media(max-width:850px){.page-nav a{padding-inline:14px;white-space:nowrap}.material-add-bar{align-items:start;flex-direction:column;gap:10px;padding:16px 14px}.m-number{width:50px}.m-actions{width:80px}.materials-table th,.materials-table td{padding-inline:7px}.materials-table td:first-child,.materials-table th:first-child{padding-left:10px}.material-content{padding:6px;font-size:15px;min-height:160px}.materials-table .remove-group{font-size:11px;padding:5px}.materials-table td .number{padding-inline:0}}
+#note-nav-due {
+  margin-left: 6px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  background: #fff1d9;
+  color: #96501d;
+  font-size: 11px;
+}
+.note-toolbar-start {display:flex; align-items:center; gap:14px; flex-wrap:wrap}
+.note-list {list-style:none; margin:0; padding:0}
+.note-list li+li {border-top:1px solid var(--line)}
+.note-card {
+  display:block;
+  width:100%;
+  padding:16px 22px;
+  border:0;
+  border-radius:0;
+  text-align:left;
+}
+.note-card:focus-visible {outline-offset:-3px}
+.note-card-title {
+  display:block;
+  margin-bottom:5px;
+  font-size:16px;
+  font-weight:600;
+  color:var(--ink);
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.note-card-meta {display:flex; align-items:center; flex-wrap:wrap; gap:6px 16px; font-size:12px; color:var(--muted)}
+.note-card-review.is-due,.note-review-state.is-due {color:#96501d; font-weight:600}
+#note-editor {
+  width:100%;
+  height:100%;
+  max-width:none;
+  max-height:none;
+  inset:0;
+  margin:0;
+  padding:0;
+  border:0;
+  border-radius:0;
+  background:#f5f7fb;
+}
+body:has(#note-editor[open]) {overflow:hidden}
+.note-editor-layout {display:flex; flex-direction:column; min-height:100%; min-width:0}
+.note-editor-header {
+  padding:16px clamp(16px,4vw,52px);
+  border-bottom:1px solid var(--line);
+  background:white;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  gap:10px 18px;
+}
+.note-editor-header h2 {margin-bottom:3px}
+#note-save-state {color:var(--muted)}
+#note-save-state.error,.note-error {color:#b23b34}
+.note-editor-main {
+  flex:1;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(215px,270px);
+  align-items:start;
+  gap:20px;
+  width:min(100%,1320px);
+  margin:0 auto;
+  padding:clamp(16px,4vw,36px);
+}
+.note-body {display:flex; flex-direction:column; align-self:stretch; min-width:0}
+.note-body label {margin:0 0 8px}
+#note-content {
+  flex:1;
+  width:100%;
+  min-height:60vh;
+  resize:vertical;
+  padding:clamp(12px,3vw,26px);
+  font-size:16px;
+  line-height:1.8;
+}
+.note-settings {
+  padding:14px 16px;
+  border:1px solid var(--line);
+  border-radius:9px;
+  background:white;
+}
+.note-settings h3 {margin:0; font-size:15px}
+.note-review-state {margin:14px 0 8px; font-size:13px}
+#note-delete {display:block; margin-top:16px}
+.synonym-actions {display:flex; flex-direction:column; align-items:start; gap:8px}
+.synonym-actions button {font-size:12px; padding:6px 8px}
+.s-actions {width:130px}
+@media(max-width:850px) {
+  .page-nav a {padding-inline:14px; white-space:nowrap}
+  .note-toolbar {padding-top:12px}
+}
+@media(max-width:680px) {
+  .note-editor-main {grid-template-columns:minmax(0,1fr)}
+  .note-editor-header h2 {font-size:17px}
+  .note-card {padding-inline:14px}
+}

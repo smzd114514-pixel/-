@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {addDays,reviewInfo,parseIntervals,newEntry,newRelatedWord,newSynonymGroup,newMaterial,parseSynonymWords,validateBook,toCsv,toSynonymsCsv,toMaterialsCsv,datePage,searchWords,blankSense} from '../public/model.js';
+import {addDays,reviewInfo,parseIntervals,noteReviewInfo,newEntry,newRelatedWord,newSynonymGroup,newMaterial,parseSynonymWords,validateBook,toCsv,toSynonymsCsv,toMaterialsCsv,datePage,searchWords,blankSense} from '../public/model.js';
 import {parseCambridge} from '../dictionary.mjs';
 test('September 30 schedule handles month boundary',()=>assert.deepEqual([0,1,2,6,14,30].map(n=>addDays('2026-09-30',n)),['2026-09-30','2026-10-01','2026-10-02','2026-10-06','2026-10-14','2026-10-30']));
 test('leap and year boundaries',()=>{assert.equal(addDays('2028-02-28',1),'2028-02-29');assert.equal(addDays('2026-12-31',1),'2027-01-01');});
@@ -10,17 +10,17 @@ test('empty words and future words do not become due',()=>{const e=newEntry('',1
 test('custom intervals validate and deduplicate',()=>{assert.deepEqual(parseIntervals('30，0, 1 1、6'),[0,1,6,30]);for(const s of ['','-1,2','1.5','10000','abc'])assert.throws(()=>parseIntervals(s));});
 test('Cambridge separates UK record verb noun adjective',()=>{const r=parseCambridge(fs.readFileSync(new URL('./fixtures/record.html',import.meta.url),'utf8'),'record');assert.equal(r.senses.length,3);assert.equal(r.senses[0].ipa,'/rɪˈkɔːd/');assert.equal(r.senses[1].ipa,'/ˈrek.ɔːd/');assert.ok(r.senses[0].meaning.includes('录制'));assert.ok(!r.senses[0].meaning.includes('克利夫'));assert.throws(()=>parseCambridge('<h1>Not found</h1>','record'));});
 test('never silently uses US IPA or unrelated headwords',()=>{const html='<div class="entry-body__el"><div class="pos-header"><span class="hw">test</span><span class="pos">noun</span><span class="us"><span class="ipa">US</span></span></div><div class="def-body"><span class="trans" lang="zh-Hans">测试</span><span class="eg"><span class="trans" lang="zh-Hans">例句</span></span></div></div>';const r=parseCambridge(html,'test');assert.equal(r.senses[0].ipa,'');assert.equal(r.senses[0].meaning,'测试');assert.throws(()=>parseCambridge(html,'other'));});
-test('backup roundtrip and unsafe data rejection',()=>{const book={schema:4,revision:0,settings:{intervals:[0,1,2]},entries:[newEntry('test',1)],synonymGroups:[],materials:[]};assert.deepEqual(validateBook(JSON.parse(JSON.stringify(book))),book);book.entries[0].url='javascript:alert(1)';assert.throws(()=>validateBook(book));book.entries[0].url='';book.entries[0].date='2026-02-30';assert.throws(()=>validateBook(book));});
+test('backup roundtrip and unsafe data rejection',()=>{const book={schema:5,revision:0,settings:{intervals:[0,1,2]},entries:[newEntry('test',1)],synonymGroups:[],materials:[]};assert.deepEqual(validateBook(JSON.parse(JSON.stringify(book))),book);book.entries[0].url='javascript:alert(1)';assert.throws(()=>validateBook(book));book.entries[0].url='';book.entries[0].date='2026-02-30';assert.throws(()=>validateBook(book));});
 test('CSV preserves six columns, Unicode, and guards spreadsheet formulas',()=>{const e=newEntry('=1+1',1);e.senses[0].meaning='中文，释义';const csv=toCsv({entries:[e]});assert.ok(csv.startsWith('\uFEFF'));assert.ok(csv.includes("\"'=1+1\""));assert.ok(csv.includes('中文，释义'));});
 test('legacy backups migrate without changing words or review records',()=>{
   const entry=newEntry('decide',4);delete entry.relatedWords;entry.reviews={'0':'2026-10-12'};
   const legacy={schema:1,revision:77,settings:{intervals:[0,1,2]},entries:[entry]};const migrated=validateBook(legacy);
-  assert.equal(migrated.schema,4);assert.equal(migrated.revision,77);assert.deepEqual(migrated.entries,[{...entry,relatedWords:[]}]);assert.deepEqual(migrated.synonymGroups,[]);assert.deepEqual(migrated.materials,[]);
+  assert.equal(migrated.schema,5);assert.equal(migrated.revision,77);assert.deepEqual(migrated.entries,[{...entry,relatedWords:[]}]);assert.deepEqual(migrated.synonymGroups,[]);assert.deepEqual(migrated.materials,[]);
 });
 test('related words and synonym groups survive JSON backup and remain separate',()=>{
   const entry=newEntry('decide',1);const child={...newRelatedWord('decision'),relation:'派生名词',importance:10};Object.assign(child.senses[0],{ipa:'/dɪˈsɪʒ.ən/',pos:'n.',meaning:'决定'});child.senses.push({...blankSense(),pos:'v.',meaning:'作出决定'});entry.relatedWords.push(child);
   const group={...newSynonymGroup(['important','of great importance'],1),meaning:'重要的',note:'搭配与语气'};
-  const book={schema:4,revision:5,settings:{intervals:[0,1]},entries:[entry],synonymGroups:[group],materials:[]};assert.deepEqual(validateBook(JSON.parse(JSON.stringify(book))),book);
+  const book={schema:5,revision:5,settings:{intervals:[0,1]},entries:[entry],synonymGroups:[group],materials:[]};assert.deepEqual(validateBook(JSON.parse(JSON.stringify(book))),book);
   const csv=toCsv(book);assert.equal(csv.split('\r\n').length,4);assert.ok(csv.includes('"1.1","decision"'));assert.ok(csv.includes('作出决定'));assert.ok(!csv.includes('of great importance'));
   const synonymsCsv=toSynonymsCsv(book);assert.ok(synonymsCsv.includes('important / of great importance'));assert.ok(!synonymsCsv.includes('decision'));
 });
@@ -30,7 +30,7 @@ test('manual synonym input supports Chinese separators and multiword phrases',()
   const group=newSynonymGroup(['=1+1','word'],1);group.note='@malicious';assert.ok(toSynonymsCsv({synonymGroups:[group]}).includes("\"'=1+1 / word\""));assert.ok(toSynonymsCsv({synonymGroups:[group]}).includes("\"'@malicious\""));
 });
 test('invalid child and synonym data is rejected before saving',()=>{
-  const book={schema:4,revision:0,settings:{intervals:[0]},entries:[newEntry('test',1)],synonymGroups:[newSynonymGroup(['test'],1)],materials:[]};
+  const book={schema:5,revision:0,settings:{intervals:[0]},entries:[newEntry('test',1)],synonymGroups:[newSynonymGroup(['test'],1)],materials:[]};
   book.entries[0].relatedWords=[{...newRelatedWord('tests'),url:'javascript:alert(1)'}];assert.throws(()=>validateBook(book));
   book.entries[0].relatedWords=[newRelatedWord('tests')];book.entries[0].relatedWords.push({...book.entries[0].relatedWords[0]});assert.throws(()=>validateBook(book));
   book.entries[0].relatedWords=[];book.synonymGroups[0].words=[];assert.throws(()=>validateBook(book));
@@ -48,7 +48,7 @@ test('schema 2 flat related words retain all manual content and review records',
 
 test('importance is independently limited to 0 through 10 per main or related word',()=>{
   const entry=newEntry('decide',1);entry.relatedWords=[newRelatedWord('decision'),newRelatedWord('decisive')];
-  const book={schema:4,revision:0,settings:{intervals:[0]},entries:[entry],synonymGroups:[],materials:[]};
+  const book={schema:5,revision:0,settings:{intervals:[0]},entries:[entry],synonymGroups:[],materials:[]};
   entry.importance=10;entry.relatedWords[0].importance=10;assert.equal(validateBook(book).entries[0].relatedWords[1].importance,0);
   for(const target of [entry,entry.relatedWords[0]]){for(const value of [-1,11,1.5,'10']){target.importance=value;assert.throws(()=>validateBook(book));}target.importance=10;}
 });
@@ -73,17 +73,39 @@ test('stored search ranks exact and prefix matches, covers all dates and related
 test('schema 3 backup gains materials without changing vocabulary, marks or synonyms',()=>{
   const entry=newEntry('record',1);entry.importance=10;entry.relatedWords.push(newRelatedWord('recording'));entry.reviews={'0':'2026-10-15'};
   const previous={schema:3,revision:293,settings:{intervals:[0,1]},entries:[entry],synonymGroups:[newSynonymGroup(['record','note'],1)]};
-  assert.deepEqual(validateBook(previous),{...previous,schema:4,materials:[]});
+  assert.deepEqual(validateBook(previous),{...previous,schema:5,materials:[]});
 });
 
 test('materials roundtrip preserves free multiline text and stays separate from other tables',()=>{
   const content='\n  This is an expression.\n中文笔记，含逗号、"引号"\n</textarea><img src=x onerror=alert(1)>';
-  const book={schema:4,revision:0,settings:{intervals:[0]},entries:[],synonymGroups:[],materials:[newMaterial(content,1),newMaterial('',2)]};
+  const book={schema:5,revision:0,settings:{intervals:[0]},entries:[],synonymGroups:[],materials:[newMaterial(content,1),newMaterial('',2)]};
   assert.deepEqual(validateBook(JSON.parse(JSON.stringify(book))),book);const csv=toMaterialsCsv(book);assert.ok(csv.includes('This is an expression.'));assert.ok(csv.includes('""引号""'));assert.ok(!toCsv(book).includes('This is'));assert.ok(!toSynonymsCsv(book).includes('This is'));
   book.materials[0].content='=1+1';assert.ok(toMaterialsCsv(book).includes("\"'=1+1\""));
 });
 
 test('invalid materials cannot silently replace stored content',()=>{
-  const book={schema:4,revision:0,settings:{intervals:[0]},entries:[],synonymGroups:[],materials:[newMaterial('笔记',1)]};
+  const book={schema:5,revision:0,settings:{intervals:[0]},entries:[],synonymGroups:[],materials:[newMaterial('笔记',1)]};
   for(const materials of [undefined,null,{},[{...book.materials[0],content:1}],[{...book.materials[0],content:'x'.repeat(100001)}],[book.materials[0],book.materials[0]]])assert.throws(()=>validateBook({...book,materials}));
+});
+
+test('legacy notes preserve their text without inventing a creation time or review plan',()=>{
+  const oldNote={id:'legacy-note',number:'7',content:'\n原有笔记'};
+  const book=validateBook({schema:4,revision:12,settings:{intervals:[0]},entries:[],synonymGroups:[],materials:[oldNote]});
+  assert.deepEqual(book.materials,[{...oldNote,createdAt:null,reviewStart:null,intervals:[],reviews:{}}]);
+  assert.deepEqual(noteReviewInfo(book.materials[0],'2026-11-20').schedule,[]);
+});
+
+test('note review starts on the configured date and keeps overdue and future rounds separate',()=>{
+  const note=newMaterial('复习这一条',1);
+  assert.ok(Number.isFinite(Date.parse(note.createdAt)));
+  assert.equal(noteReviewInfo(note,'2026-11-20').due.length,0);
+  Object.assign(note,{reviewStart:'2026-11-18',intervals:[0,2,7],reviews:{'0':'2026-11-18'}});
+  const book={schema:5,revision:0,settings:{intervals:[0]},entries:[],synonymGroups:[],materials:[note]};
+  assert.deepEqual(validateBook(book),book);
+  const info=noteReviewInfo(note,'2026-11-21');
+  assert.deepEqual(info.due.map(round=>round.day),[2]);
+  assert.equal(info.overdue,true);
+  assert.equal(info.next.date,'2026-11-25');
+  assert.throws(()=>validateBook({...book,materials:[{...note,reviewStart:null}]}));
+  assert.throws(()=>validateBook({...book,materials:[{...note,reviews:{'1':'2026-11-20'}}]}));
 });
